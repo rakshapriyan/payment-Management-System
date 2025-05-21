@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zeta.paymentManagementSystem.constants.Category;
 import com.zeta.paymentManagementSystem.constants.PaymentType;
 import com.zeta.paymentManagementSystem.constants.Status;
+import com.zeta.paymentManagementSystem.dto.PaymentRequestDTO;
 import com.zeta.paymentManagementSystem.model.Payment;
+import com.zeta.paymentManagementSystem.model.User;
 import com.zeta.paymentManagementSystem.service.PaymentService;
+import com.zeta.paymentManagementSystem.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +16,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.http.MediaType;
 
 import java.sql.Date;
 import java.time.LocalDate;
@@ -20,10 +24,10 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.mockito.Mockito.*;
-import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import org.springframework.http.MediaType;
+import static org.hamcrest.Matchers.is;
+
 
 @WebMvcTest(PaymentController.class)
 @ContextConfiguration(classes = {
@@ -39,6 +43,9 @@ class PaymentControllerTest {
     private PaymentService paymentService;
 
     @Autowired
+    private UserService userService;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     static class TestConfig {
@@ -46,11 +53,20 @@ class PaymentControllerTest {
         public PaymentService paymentService() {
             return mock(PaymentService.class);
         }
+
+        @Bean
+        public UserService userService() {
+            return mock(UserService.class);
+        }
     }
 
     @BeforeEach
     void setup() {
-        reset(paymentService);
+        reset(paymentService, userService);
+    }
+
+    private User createSampleUser(int id) {
+        return new User(id, "John Doe", "john@example.com", null, null);
     }
 
     private Payment createSamplePayment(int id) {
@@ -60,20 +76,57 @@ class PaymentControllerTest {
                 PaymentType.INCOMING,
                 Category.SALARY,
                 Status.PENDING,
-                Date.valueOf(LocalDate.now())
+                Date.valueOf(LocalDate.now()),
+                createSampleUser(1)
         );
     }
 
+    private PaymentRequestDTO createSamplePaymentDTO() {
+        PaymentRequestDTO dto = new PaymentRequestDTO();
+        dto.setAmount(2500.00);
+        dto.setPaymentType(PaymentType.INCOMING);
+        dto.setCategory(Category.SALARY);
+        dto.setStatus(Status.PENDING);
+        dto.setDate(Date.valueOf(LocalDate.now()));
+        dto.setUserId(1);
+        return dto;
+    }
+
     @Test
-    void testCreatePayment() throws Exception {
-        Payment payment = createSamplePayment(1);
-        doNothing().when(paymentService).addPayment(payment.getId(), payment);
+    void testCreatePayment_ValidUser() throws Exception {
+        PaymentRequestDTO dto = createSamplePaymentDTO();
+        when(userService.getUserById(1)).thenReturn(createSampleUser(1));
+        doNothing().when(paymentService).addPayment(anyInt(), any(Payment.class));
 
         mockMvc.perform(post("/payments")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payment)))
+                        .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isCreated())
                 .andExpect(content().string("Payment created successfully."));
+    }
+
+    @Test
+    void testCreatePayment_MissingUserId() throws Exception {
+        PaymentRequestDTO dto = createSamplePaymentDTO();
+        dto.setUserId(0); // Invalid
+
+        mockMvc.perform(post("/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("User ID is required."));
+    }
+
+    @Test
+    void testCreatePayment_UserNotFound() throws Exception {
+        PaymentRequestDTO dto = createSamplePaymentDTO();
+        when(userService.getUserById(1)).thenReturn(null);
+
+        mockMvc.perform(post("/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("User not found."));
     }
 
     @Test
@@ -110,15 +163,29 @@ class PaymentControllerTest {
 
     @Test
     void testUpdatePayment_Found() throws Exception {
-        Payment updated = createSamplePayment(1);
-        when(paymentService.getPayment(1)).thenReturn(updated);
-        doNothing().when(paymentService).updatePayment(1, updated);
+        Payment existing = createSamplePayment(1);
+        PaymentRequestDTO dto = createSamplePaymentDTO();
+
+        when(paymentService.getPayment(1)).thenReturn(existing);
+        doNothing().when(paymentService).updatePayment(eq(1), any(Payment.class));
 
         mockMvc.perform(put("/payments/1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updated)))
+                        .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
                 .andExpect(content().string("Payment updated successfully."));
+    }
+
+    @Test
+    void testUpdatePayment_NotFound() throws Exception {
+        PaymentRequestDTO dto = createSamplePaymentDTO();
+        when(paymentService.getPayment(1)).thenReturn(null);
+
+        mockMvc.perform(put("/payments/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Payment not found with ID: 1"));
     }
 
     @Test

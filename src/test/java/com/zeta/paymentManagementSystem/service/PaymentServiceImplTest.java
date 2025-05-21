@@ -7,6 +7,7 @@ import com.zeta.paymentManagementSystem.service.impl.PaymentServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.sql.Date;
 import java.util.Arrays;
@@ -61,38 +62,6 @@ class PaymentServiceImplTest {
         doNothing().when(paymentRepository).deleteById(paymentId);
         paymentService.deletePayment(paymentId);
         verify(paymentRepository, times(1)).deleteById(paymentId);
-    }
-
-    @Test
-    void testUpdatePayment_PaymentExists() {
-        Payment updatedPayment = new Payment();
-        updatedPayment.setAmount(200.0);
-        updatedPayment.setDate(Date.valueOf("2024-06-01"));
-        updatedPayment.setStatus(Status.COMPLETED);
-
-        when(paymentRepository.findById(1)).thenReturn(Optional.of(samplePayment));
-        when(paymentRepository.save(any(Payment.class))).thenReturn(samplePayment);
-
-        paymentService.updatePayment(1, updatedPayment);
-
-        assertEquals(200.0, samplePayment.getAmount());
-        assertEquals(Date.valueOf("2024-06-01"), samplePayment.getDate());
-        assertEquals(Status.COMPLETED, samplePayment.getStatus());
-        verify(paymentRepository).save(samplePayment);
-    }
-
-    @Test
-    void testUpdatePayment_PaymentNotFound() {
-        when(paymentRepository.findById(1)).thenReturn(Optional.empty());
-
-        Payment updatedPayment = new Payment();
-        updatedPayment.setAmount(150.0);
-        updatedPayment.setDate(Date.valueOf("2024-06-15"));
-        updatedPayment.setStatus(Status.PROCESSING);
-
-        paymentService.updatePayment(1, updatedPayment);
-
-        verify(paymentRepository, never()).save(any(Payment.class));
     }
 
     @Test

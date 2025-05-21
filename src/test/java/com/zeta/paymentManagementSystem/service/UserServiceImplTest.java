@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,7 +32,7 @@ class UserServiceImplTest {
     }
 
     private User createSampleUser(int id) {
-        return new User(id, "John Doe", "john.doe@example.com", Role.VIEWER);
+        return new User(id, "John Doe", "john.doe@example.com", Role.VIEWER, null);
     }
 
     @Test

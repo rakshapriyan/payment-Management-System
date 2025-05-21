@@ -27,7 +27,8 @@ import org.springframework.http.MediaType;
         UserController.class,
         UserControllerTest.TestConfig.class
 })
-class UserControllerTest {
+
+public class UserControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -51,7 +52,7 @@ class UserControllerTest {
     }
 
     private User createSampleUser(int id) {
-        return new User(id, "John Doe", "john.doe@example.com", Role.VIEWER);
+        return new User(id, "John Doe", "john.doe@example.com", Role.VIEWER, null);
     }
 
     @Test
